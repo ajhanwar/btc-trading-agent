@@ -13,13 +13,12 @@ The architecture is heavily modularized to separate the indicator math, the agen
 * `backtest/`: A dedicated directory containing the vectorized backtesting engine and scripts to sweep strategies across different assets (BTC, ETH, SOL) and timeframes.
   * `backtest/backtest_engine.py`: Fast vectorized return and trade execution calculations.
   * `backtest/run_btc_sweep.py`: Sweeps 384 strategies on pure Bitcoin over 6 months to find the best configuration.
-  * `backtest/run_multi_asset_sweep.py`: Tests the agent across 3 different crypto assets simultaneously.
 
 ## Setup and Installation
 
 1. Install dependencies:
 ```bash
-pip install pandas numpy yfinance ta scipy
+pip install pandas numpy yfinance
 ```
 
 ## Running Backtests
