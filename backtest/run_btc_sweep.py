@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -68,4 +72,4 @@ def run_sweep(period, out_filename):
     print(f"Saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("730d", "btc_results_2yr.csv")
+    run_sweep("180d", "btc_results_6mo.csv")
