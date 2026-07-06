@@ -12,8 +12,8 @@ def calculate_indicators(df):
     df['Typical_Price'] = (df['High'] + df['Low'] + df['Close']) / 3
     df['VWAP'] = df.groupby('Date').apply(lambda x: (x['Typical_Price'] * x['Volume']).cumsum() / x['Volume'].cumsum()).reset_index(level=0, drop=True)
 
-    # Fibonacci (50% level of rolling 30-day ~ 720 hours)
-    periods_30d = 720
+    # Fibonacci (50% level of rolling 30-day ~ 210 hours for equities)
+    periods_30d = 210
     rolling_high = df['High'].rolling(window=periods_30d).max()
     rolling_low = df['Low'].rolling(window=periods_30d).min()
     df['Fib_50'] = rolling_low + (rolling_high - rolling_low) * 0.5

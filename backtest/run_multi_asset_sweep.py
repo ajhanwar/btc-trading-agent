@@ -10,29 +10,30 @@ from indicators import calculate_indicators
 from agent import generate_signals
 from backtest_engine import run_vectorized_backtest
 
-def fetch_data(symbol, period):
-    df = yf.download(symbol, interval="5m", period="60d", progress=False)
+def fetch_data(symbol, period, interval):
+    df = yf.download(symbol, interval=interval, period=period, progress=False)
     if df.empty:
         return None
     df.columns = df.columns.get_level_values(0)
 
+    # Filter strictly for regular market hours
     df = df.between_time('09:30', '15:59')
 
-    df['Date'] = df.index.date
-    df['GroupID'] = df.groupby('Date').cumcount() // 13
+    if interval == "5m":
+        df['Date'] = df.index.date
+        df['GroupID'] = df.groupby('Date').cumcount() // 13
 
-    resampled = df.groupby(['Date', 'GroupID']).agg({
-        'Open': 'first',
-        'High': 'max',
-        'Low': 'min',
-        'Close': 'last',
-        'Volume': 'sum'
-    })
+        resampled = df.groupby(['Date', 'GroupID']).agg({
+            'Open': 'first',
+            'High': 'max',
+            'Low': 'min',
+            'Close': 'last',
+            'Volume': 'sum'
+        })
 
-    first_times = df.reset_index().groupby(['Date', 'GroupID'])['Datetime'].first()
-    resampled.index = first_times
-
-    df = resampled
+        first_times = df.reset_index().groupby(['Date', 'GroupID'])['Datetime'].first()
+        resampled.index = first_times
+        df = resampled
 
     if df['Volume'].sum() == 0:
         np.random.seed(123)
@@ -42,18 +43,22 @@ def fetch_data(symbol, period):
 
     return df
 
-def run_sweep(period, out_filename):
-    print(f"\n--- Running Sweep for Bull/Bear Leveraged ETFs (65m Custom Candles over {period}) ---")
+def run_sweep(period, interval, out_filename):
+    if interval == "5m":
+        desc = "65m Custom Candles"
+    else:
+        desc = "60m Native Candles"
 
-    # Define stock subsets
+    print(f"\n--- Running Sweep for Bull/Bear Leveraged ETFs ({desc} over {period}) ---")
+
     bull_assets = ["SPXL", "TQQQ", "SOXL"]
     bear_assets = ["SPXS", "SQQQ", "SOXS"]
     all_assets = bull_assets + bear_assets
 
     data = {}
     for asset in all_assets:
-        print(f"Fetching and Resampling {asset} data...")
-        df = fetch_data(asset, period)
+        print(f"Fetching {asset} data...")
+        df = fetch_data(asset, period, interval)
         if df is not None:
             df = calculate_indicators(df)
             data[asset] = df
@@ -108,7 +113,6 @@ def run_sweep(period, out_filename):
 
     res_df = pd.DataFrame(results)
 
-    # Sort and display Top 3 for each subset
     print("\n--- TOP 3 INDICATOR COMBINATIONS FOR ALL STOCKS OVERALL ---")
     res_df_all = res_df.sort_values(by='Avg_Overall_%', ascending=False)
     print(res_df_all.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Overall_%']].to_string(index=False))
@@ -121,9 +125,8 @@ def run_sweep(period, out_filename):
     res_df_bear = res_df.sort_values(by='Avg_Bear_%', ascending=False)
     print(res_df_bear.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Bear_%']].to_string(index=False))
 
-    # Save sorted by overall
     res_df_all.to_csv(out_filename, index=False)
     print(f"\nFull results saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("60d", "leveraged_bull_bear_results_60d_65m.csv")
+    run_sweep("1y", "60m", "leveraged_bull_bear_results_1yr_60m.csv")
