@@ -125,4 +125,4 @@ def run_sweep(period, interval, out_filename):
     print(f"\nFull results saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("60d", "15m", "spxl_spxs_results_60d_15m.csv")
+    run_sweep("60d", "15m", "spxl_spxs_results_60d_15m_stoch1433.csv")
