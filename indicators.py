@@ -2,7 +2,7 @@ import pandas as pd
 
 def calculate_indicators(df):
     """
-    Calculates 200 SMA, VWAP, Fibonacci, Bullish Engulfing, Pivots, MACD, Volume SMA, and Stochastic.
+    Calculates 200 SMA, VWAP, Fibonacci, Bullish Engulfing, Pivots, MACD, Volume SMA, Stochastic, and EOD.
     """
     # 200 SMA
     df['SMA_200'] = df['Close'].rolling(window=200).mean()
@@ -55,5 +55,9 @@ def calculate_indicators(df):
     df['Prev_Full_D'] = df['Full_D'].shift(1)
     df['Stoch_Bull_Cross'] = (df['Prev_Full_K'] <= df['Prev_Full_D']) & (df['Full_K'] > df['Full_D'])
     df['Stoch_Bear_Cross'] = (df['Prev_Full_K'] >= df['Prev_Full_D']) & (df['Full_K'] < df['Full_D'])
+
+    # End of Day (EOD) flag for intraday scalping (assuming 15:45 is the last candle)
+    df['Time'] = df.index.time
+    df['EOD'] = df['Time'] >= pd.to_datetime('15:45').time()
 
     return df
