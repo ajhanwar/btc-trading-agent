@@ -1,6 +1,6 @@
-# Crypto Trading Bot Agent
+# Equity Trading Bot Agent
 
-This repository contains the core logic and backtesting engine for an autonomous cryptocurrency trading agent. It is designed to evaluate massive grids of technical indicator combinations (384 different configurations) over real historical market data (via `yfinance`).
+This repository contains the core logic and backtesting engine for an autonomous equity trading agent focused on broad market index ETFs (SPY and VOO). It evaluates massive grids of technical indicator combinations (384 different configurations) over 2 years of real historical hourly market data (via `yfinance`).
 
 The ultimate goal of this project is to take the most robust algorithmic strategy identified by the backtester and deploy it to **Robinhood Agentic Trading** via an MCP (Model Context Protocol) server.
 
@@ -10,9 +10,9 @@ The architecture is heavily modularized to separate the indicator math, the agen
 
 * `indicators.py`: Contains the mathematical calculations for 200 SMA, VWAP, Fibonacci, Bullish Engulfing patterns, Daily Pivots, MACD, Volume SMA, and Stochastic Oscillator.
 * `agent.py`: The core logic file. Contains `generate_signals`, which takes in historical data and boolean strategy toggles, outputting strict Buy and Sell triggers. (This is the module that will eventually be wrapped by the Robinhood MCP server).
-* `backtest/`: A dedicated directory containing the vectorized backtesting engine and scripts to sweep strategies across different assets (BTC, ETH, SOL) and timeframes.
+* `backtest/`: A dedicated directory containing the vectorized backtesting engine and execution scripts.
   * `backtest/backtest_engine.py`: Fast vectorized return and trade execution calculations.
-  * `backtest/run_btc_sweep.py`: Sweeps 384 strategies on pure Bitcoin over 6 months to find the best configuration.
+  * `backtest/run_multi_asset_sweep.py`: Sweeps 384 strategies on SPY and VOO over a 2-year horizon using 60-minute candles to find the best configuration.
 
 ## Setup and Installation
 
@@ -23,13 +23,13 @@ pip install pandas numpy yfinance
 
 ## Running Backtests
 
-To run a parameter sweep on Bitcoin to find the best 6-month technical indicator strategy:
+To run the parameter sweep on SPY and VOO to find the best 2-year technical indicator strategy:
 ```bash
 cd backtest
-python run_btc_sweep.py
+python run_multi_asset_sweep.py
 ```
 
-Results are saved to `.csv` files inside the `backtest/` folder.
+Results are saved to `spy_voo_results_2yr.csv` inside the `backtest/` folder.
 
 ## Next Steps
 - Integrate the winning parameters from `agent.py` into a FastAPI-based MCP server.
