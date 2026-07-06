@@ -49,6 +49,7 @@ def sleeve_weight(df: pd.DataFrame) -> dict:
     """
     pos = ibs_position(df)
     vol = realized_vol(df)
+    frac = np.clip(C.VOL_TARGET / vol, 0, C.EXPOSURE_CAP)
     weight = float(weight_series(df).iloc[-1])
     return {
         "weight": weight,
