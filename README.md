@@ -5,11 +5,11 @@ account. It trades a mean-reversion strategy — **Internal Bar Strength (IBS) +
 targeting + an exposure cap** — across three tech-sector 3× ETFs (**SOXL, SPXL, TQQQ**),
 rebalanced once daily.
 
-> This repo began as a Bitcoin stochastic-crossover experiment. After rigorous backtesting
-> that approach showed **no out-of-sample edge**, and Robinhood Agentic turned out to support
-> equities only (not crypto), so it was rebuilt around a strategy that actually validates.
-> The original BTC code is kept under [`backtest/`](backtest/) + [`agent.py`](agent.py) as
-> superseded legacy research.
+> This repo began as a Bitcoin stochastic-crossover experiment, then briefly detoured into an
+> SPY/VOO index sweep. Rigorous backtesting showed **neither had an out-of-sample edge**, and
+> Robinhood Agentic supports equities only (not crypto), so it was rebuilt around a strategy that
+> actually validates. The earlier BTC and SPY/VOO code is kept under [`backtest/`](backtest/) +
+> [`agent.py`](agent.py) as superseded legacy research.
 
 ## The strategy
 
@@ -56,7 +56,7 @@ live/                 the production bot (paper-mode by default)
   ROBINHOOD_SETUP.md  full go-live guide
 research/
   backtest_ibs.py     reproducible backtest of the deployed strategy
-backtest/, agent.py, indicators.py   legacy BTC research (superseded)
+backtest/, agent.py, indicators.py   legacy research — BTC + SPY/VOO sweeps (superseded)
 ```
 
 ## Quickstart
