@@ -43,12 +43,12 @@ def calculate_indicators(df):
     # Volume SMA (20 periods)
     df['Volume_SMA'] = df['Volume'].rolling(window=20).mean()
 
-    # Full Stochastic (14, 3, 3)
+    # Full Stochastic (14, 5, 5)
     low14 = df['Low'].rolling(window=14).min()
     high14 = df['High'].rolling(window=14).max()
     df['Fast_K'] = 100 * ((df['Close'] - low14) / (high14 - low14))
-    df['Full_K'] = df['Fast_K'].rolling(window=3).mean()
-    df['Full_D'] = df['Full_K'].rolling(window=3).mean()
+    df['Full_K'] = df['Fast_K'].rolling(window=5).mean()
+    df['Full_D'] = df['Full_K'].rolling(window=5).mean()
 
     # Pre-compute cross logic for Stochastic
     df['Prev_Full_K'] = df['Full_K'].shift(1)
