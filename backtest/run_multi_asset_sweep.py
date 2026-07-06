@@ -11,17 +11,13 @@ from agent import generate_signals
 from backtest_engine import run_vectorized_backtest
 
 def fetch_data(symbol, period):
-    # Fetch 5-minute data (max 60 days allowed by Yahoo Finance)
     df = yf.download(symbol, interval="5m", period="60d", progress=False)
     if df.empty:
         return None
     df.columns = df.columns.get_level_values(0)
 
-    # Filter strictly for regular market hours to avoid pre/post market noise
     df = df.between_time('09:30', '15:59')
 
-    # Resample 5-minute data into 65-minute candles
-    # 65m / 5m = 13 candles per group
     df['Date'] = df.index.date
     df['GroupID'] = df.groupby('Date').cumcount() // 13
 
@@ -33,13 +29,11 @@ def fetch_data(symbol, period):
         'Volume': 'sum'
     })
 
-    # Reassign proper datetime index based on the first 5m candle of each 65m group
     first_times = df.reset_index().groupby(['Date', 'GroupID'])['Datetime'].first()
     resampled.index = first_times
 
     df = resampled
 
-    # Replace any exact 0 volumes with 1 to prevent VWAP div/0
     if df['Volume'].sum() == 0:
         np.random.seed(123)
         df['Volume'] = np.random.lognormal(mean=1, sigma=0.5, size=len(df)) * 100
@@ -49,20 +43,23 @@ def fetch_data(symbol, period):
     return df
 
 def run_sweep(period, out_filename):
-    print(f"\n--- Running Sweep for SOXL, TQQQ, SPXL (Custom 65-Min Candles over {period}) ---")
-    assets = ["SOXL", "TQQQ", "SPXL"]
-    data = {}
+    print(f"\n--- Running Sweep for Bull/Bear Leveraged ETFs (65m Custom Candles over {period}) ---")
 
-    for asset in assets:
+    # Define stock subsets
+    bull_assets = ["SPXL", "TQQQ", "SOXL"]
+    bear_assets = ["SPXS", "SQQQ", "SOXS"]
+    all_assets = bull_assets + bear_assets
+
+    data = {}
+    for asset in all_assets:
         print(f"Fetching and Resampling {asset} data...")
         df = fetch_data(asset, period)
         if df is not None:
             df = calculate_indicators(df)
             data[asset] = df
 
-    if not data:
-        print("No data fetched.")
-        return
+    if len(data) != len(all_assets):
+        print("Warning: Some data failed to fetch.")
 
     filters = [True, False]
     stoch_thresholds = [(20, 80), (30, 70), (40, 60)]
@@ -70,24 +67,23 @@ def run_sweep(period, out_filename):
         filters, filters, filters, filters, filters, filters, filters, stoch_thresholds
     ))
 
-    print(f"Testing {len(combinations)} parameter suites across {len(assets)} assets...")
+    print(f"Testing {len(combinations)} indicator subsets across {len(all_assets)} assets...")
     results = []
 
     for combo in combinations:
         use_sma, use_vwap, use_fib, use_eng, use_piv, use_macd, use_vol, (s_buy, s_sell) = combo
 
-        returns = []
-        trade_counts = []
+        returns_dict = {}
         for asset, df in data.items():
             buy, sell = generate_signals(
                 df, use_sma, use_vwap, use_fib, use_eng, use_piv, use_macd, use_vol, s_buy, s_sell
             )
             cum_ret, trades = run_vectorized_backtest(df, buy, sell)
-            returns.append(cum_ret)
-            trade_counts.append(trades)
+            returns_dict[asset] = cum_ret * 100
 
-        avg_ret = np.mean(returns) * 100
-        avg_trades = np.mean(trade_counts)
+        bull_ret = np.mean([returns_dict[a] for a in bull_assets])
+        bear_ret = np.mean([returns_dict[a] for a in bear_assets])
+        all_ret = np.mean([returns_dict[a] for a in all_assets])
 
         results.append({
             'SMA_200': use_sma,
@@ -99,20 +95,35 @@ def run_sweep(period, out_filename):
             'Vol_SMA': use_vol,
             'Stoch_Buy': s_buy,
             'Stoch_Sell': s_sell,
-            'Avg_Return_%': avg_ret,
-            'Avg_Trades': avg_trades,
-            'SOXL_Ret': returns[0]*100,
-            'TQQQ_Ret': returns[1]*100,
-            'SPXL_Ret': returns[2]*100
+            'Avg_Overall_%': all_ret,
+            'Avg_Bull_%': bull_ret,
+            'Avg_Bear_%': bear_ret,
+            'SPXL': returns_dict['SPXL'],
+            'TQQQ': returns_dict['TQQQ'],
+            'SOXL': returns_dict['SOXL'],
+            'SPXS': returns_dict['SPXS'],
+            'SQQQ': returns_dict['SQQQ'],
+            'SOXS': returns_dict['SOXS']
         })
 
-    res_df = pd.DataFrame(results).sort_values(by='Avg_Return_%', ascending=False)
-    res_df.to_csv(out_filename, index=False)
+    res_df = pd.DataFrame(results)
 
-    print(f"Top 5 Suites (65m Custom Candles):")
-    print(res_df.head(5)[['SMA_200', 'VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Stoch_Sell', 'Avg_Return_%']].to_string(index=False))
-    print(f"Saved to {out_filename}")
+    # Sort and display Top 3 for each subset
+    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR ALL STOCKS OVERALL ---")
+    res_df_all = res_df.sort_values(by='Avg_Overall_%', ascending=False)
+    print(res_df_all.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Overall_%']].to_string(index=False))
+
+    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR BULL STOCKS (SPXL, TQQQ, SOXL) ---")
+    res_df_bull = res_df.sort_values(by='Avg_Bull_%', ascending=False)
+    print(res_df_bull.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Bull_%']].to_string(index=False))
+
+    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR BEAR STOCKS (SPXS, SQQQ, SOXS) ---")
+    res_df_bear = res_df.sort_values(by='Avg_Bear_%', ascending=False)
+    print(res_df_bear.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Bear_%']].to_string(index=False))
+
+    # Save sorted by overall
+    res_df_all.to_csv(out_filename, index=False)
+    print(f"\nFull results saved to {out_filename}")
 
 if __name__ == "__main__":
-    # Max allowed by yfinance for 5m data is 60d
-    run_sweep("60d", "leveraged_etfs_results_60d_65m.csv")
+    run_sweep("60d", "leveraged_bull_bear_results_60d_65m.csv")
