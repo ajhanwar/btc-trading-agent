@@ -16,7 +16,7 @@ def fetch_data(symbol, period):
         return None
     df.columns = df.columns.get_level_values(0)
 
-    # Traditional markets (SPY/VOO) might have extended hours with 0 volume occasionally in weird splits.
+    # Traditional markets might have extended hours with 0 volume occasionally in weird splits.
     # Replace any exact 0 volumes with 1 to prevent VWAP div/0
     if df['Volume'].sum() == 0:
         np.random.seed(123)
@@ -27,8 +27,8 @@ def fetch_data(symbol, period):
     return df
 
 def run_sweep(period, out_filename):
-    print(f"\n--- Running Sweep for SPY & VOO ({period}) ---")
-    assets = ["SPY", "VOO"]
+    print(f"\n--- Running Sweep for SOXL, TQQQ, SPXL ({period}) ---")
+    assets = ["SOXL", "TQQQ", "SPXL"]
     data = {}
 
     for asset in assets:
@@ -79,16 +79,17 @@ def run_sweep(period, out_filename):
             'Stoch_Sell': s_sell,
             'Avg_Return_%': avg_ret,
             'Avg_Trades': avg_trades,
-            'SPY_Ret': returns[0]*100,
-            'VOO_Ret': returns[1]*100
+            'SOXL_Ret': returns[0]*100,
+            'TQQQ_Ret': returns[1]*100,
+            'SPXL_Ret': returns[2]*100
         })
 
     res_df = pd.DataFrame(results).sort_values(by='Avg_Return_%', ascending=False)
     res_df.to_csv(out_filename, index=False)
 
-    print(f"Top 5 SPY/VOO Suites ({period}):")
+    print(f"Top 5 Suites ({period}):")
     print(res_df.head(5)[['SMA_200', 'VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Stoch_Sell', 'Avg_Return_%']].to_string(index=False))
     print(f"Saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("730d", "spy_voo_results_2yr.csv")
+    run_sweep("730d", "leveraged_etfs_results_2yr.csv")
