@@ -47,7 +47,7 @@ def run_sweep(period, interval, out_filename):
     if interval == "5m":
         desc = "65m Custom Candles"
     else:
-        desc = "60m Native Candles"
+        desc = f"{interval} Native Candles"
 
     print(f"\n--- Running Sweep for Bull/Bear Leveraged ETFs ({desc} over {period}) ---")
 
@@ -129,4 +129,4 @@ def run_sweep(period, interval, out_filename):
     print(f"\nFull results saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("1y", "60m", "leveraged_bull_bear_results_1yr_60m.csv")
+    run_sweep("60d", "15m", "leveraged_bull_bear_results_60d_15m.csv")
