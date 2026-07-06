@@ -11,12 +11,34 @@ from agent import generate_signals
 from backtest_engine import run_vectorized_backtest
 
 def fetch_data(symbol, period):
-    df = yf.download(symbol, interval="60m", period=period, progress=False)
+    # Fetch 5-minute data (max 60 days allowed by Yahoo Finance)
+    df = yf.download(symbol, interval="5m", period="60d", progress=False)
     if df.empty:
         return None
     df.columns = df.columns.get_level_values(0)
 
-    # Traditional markets might have extended hours with 0 volume occasionally in weird splits.
+    # Filter strictly for regular market hours to avoid pre/post market noise
+    df = df.between_time('09:30', '15:59')
+
+    # Resample 5-minute data into 65-minute candles
+    # 65m / 5m = 13 candles per group
+    df['Date'] = df.index.date
+    df['GroupID'] = df.groupby('Date').cumcount() // 13
+
+    resampled = df.groupby(['Date', 'GroupID']).agg({
+        'Open': 'first',
+        'High': 'max',
+        'Low': 'min',
+        'Close': 'last',
+        'Volume': 'sum'
+    })
+
+    # Reassign proper datetime index based on the first 5m candle of each 65m group
+    first_times = df.reset_index().groupby(['Date', 'GroupID'])['Datetime'].first()
+    resampled.index = first_times
+
+    df = resampled
+
     # Replace any exact 0 volumes with 1 to prevent VWAP div/0
     if df['Volume'].sum() == 0:
         np.random.seed(123)
@@ -27,12 +49,12 @@ def fetch_data(symbol, period):
     return df
 
 def run_sweep(period, out_filename):
-    print(f"\n--- Running Sweep for SOXL, TQQQ, SPXL ({period}) ---")
+    print(f"\n--- Running Sweep for SOXL, TQQQ, SPXL (Custom 65-Min Candles over {period}) ---")
     assets = ["SOXL", "TQQQ", "SPXL"]
     data = {}
 
     for asset in assets:
-        print(f"Fetching {asset} data...")
+        print(f"Fetching and Resampling {asset} data...")
         df = fetch_data(asset, period)
         if df is not None:
             df = calculate_indicators(df)
@@ -87,9 +109,10 @@ def run_sweep(period, out_filename):
     res_df = pd.DataFrame(results).sort_values(by='Avg_Return_%', ascending=False)
     res_df.to_csv(out_filename, index=False)
 
-    print(f"Top 5 Suites ({period}):")
+    print(f"Top 5 Suites (65m Custom Candles):")
     print(res_df.head(5)[['SMA_200', 'VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Stoch_Sell', 'Avg_Return_%']].to_string(index=False))
     print(f"Saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("730d", "leveraged_etfs_results_2yr.csv")
+    # Max allowed by yfinance for 5m data is 60d
+    run_sweep("60d", "leveraged_etfs_results_60d_65m.csv")
