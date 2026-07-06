@@ -49,10 +49,10 @@ def run_sweep(period, interval, out_filename):
     else:
         desc = f"{interval} Native Candles"
 
-    print(f"\n--- Running Sweep for Bull/Bear Leveraged ETFs ({desc} over {period}) ---")
+    print(f"\n--- Running Sweep for SPXL & SPXS ({desc} over {period}) ---")
 
-    bull_assets = ["SPXL", "TQQQ", "SOXL"]
-    bear_assets = ["SPXS", "SQQQ", "SOXS"]
+    bull_assets = ["SPXL"]
+    bear_assets = ["SPXS"]
     all_assets = bull_assets + bear_assets
 
     data = {}
@@ -104,11 +104,7 @@ def run_sweep(period, interval, out_filename):
             'Avg_Bull_%': bull_ret,
             'Avg_Bear_%': bear_ret,
             'SPXL': returns_dict['SPXL'],
-            'TQQQ': returns_dict['TQQQ'],
-            'SOXL': returns_dict['SOXL'],
-            'SPXS': returns_dict['SPXS'],
-            'SQQQ': returns_dict['SQQQ'],
-            'SOXS': returns_dict['SOXS']
+            'SPXS': returns_dict['SPXS']
         })
 
     res_df = pd.DataFrame(results)
@@ -117,11 +113,11 @@ def run_sweep(period, interval, out_filename):
     res_df_all = res_df.sort_values(by='Avg_Overall_%', ascending=False)
     print(res_df_all.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Overall_%']].to_string(index=False))
 
-    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR BULL STOCKS (SPXL, TQQQ, SOXL) ---")
+    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR SPXL (BULL) ---")
     res_df_bull = res_df.sort_values(by='Avg_Bull_%', ascending=False)
     print(res_df_bull.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Bull_%']].to_string(index=False))
 
-    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR BEAR STOCKS (SPXS, SQQQ, SOXS) ---")
+    print("\n--- TOP 3 INDICATOR COMBINATIONS FOR SPXS (BEAR) ---")
     res_df_bear = res_df.sort_values(by='Avg_Bear_%', ascending=False)
     print(res_df_bear.head(3)[['VWAP', 'Bullish_Engulfing', 'Vol_SMA', 'Stoch_Buy', 'Avg_Bear_%']].to_string(index=False))
 
@@ -129,4 +125,4 @@ def run_sweep(period, interval, out_filename):
     print(f"\nFull results saved to {out_filename}")
 
 if __name__ == "__main__":
-    run_sweep("60d", "15m", "leveraged_bull_bear_results_60d_15m.csv")
+    run_sweep("60d", "15m", "spxl_spxs_results_60d_15m.csv")
