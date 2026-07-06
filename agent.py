@@ -1,3 +1,7 @@
+# LEGACY / SUPERSEDED: the original Bitcoin stochastic-crossover signal generator.
+# Backtesting showed this approach had no out-of-sample edge. The deployed strategy is
+# IBS mean-reversion in live/strategy.py. Kept for historical reference only.
+
 def generate_signals(df, use_sma200, use_vwap, use_fib, use_engulfing, use_pivots, use_macd, use_vol_sma, stoch_buy_thresh, stoch_sell_thresh):
     """
     Evaluates piece/indicator combinations and triggers boolean buy/sell signals.

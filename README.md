@@ -1,36 +1,87 @@
-# Equity Trading Bot Agent
+# Leveraged-ETF IBS Portfolio Bot
 
-This repository contains the core logic and backtesting engine for an autonomous equity trading agent focused on broad market index ETFs (SPY and VOO). It evaluates massive grids of technical indicator combinations (384 different configurations) over 2 years of real historical hourly market data (via `yfinance`).
+An autonomous, **long-only** daily trading bot for a [Robinhood Agentic](https://robinhood.com/us/en/support/articles/agentic-trading-overview/)
+account. It trades a mean-reversion strategy — **Internal Bar Strength (IBS) + volatility
+targeting + an exposure cap** — across three tech-sector 3× ETFs (**SOXL, SPXL, TQQQ**),
+rebalanced once daily.
 
-The ultimate goal of this project is to take the most robust algorithmic strategy identified by the backtester and deploy it to **Robinhood Agentic Trading** via an MCP (Model Context Protocol) server.
+> This repo began as a Bitcoin stochastic-crossover experiment, then briefly detoured into an
+> SPY/VOO index sweep. Rigorous backtesting showed **neither had an out-of-sample edge**, and
+> Robinhood Agentic supports equities only (not crypto), so it was rebuilt around a strategy that
+> actually validates. The earlier BTC and SPY/VOO code is kept under [`backtest/`](backtest/) +
+> [`agent.py`](agent.py) as superseded legacy research.
 
-## Repository Structure
+## The strategy
 
-The architecture is heavily modularized to separate the indicator math, the agent execution logic, and the historical testing engine.
+For each ETF, independently:
+- **IBS** = `(Close − Low) / (High − Low)` measures where the close sits in the day's range.
+- Go **long** when IBS < 0.20 (oversold), exit to **cash** when IBS > 0.80. Never short.
+- Size the position to a **20% volatility target** (`target / realized_vol`), **capped at 0.5×**
+  of the sleeve — so exposure auto-collapses when volatility spikes (i.e. in crashes).
+- Three equal-weight sleeves diversify the portfolio.
 
-* `indicators.py`: Contains the mathematical calculations for 200 SMA, VWAP, Fibonacci, Bullish Engulfing patterns, Daily Pivots, MACD, Volume SMA, and Stochastic Oscillator.
-* `agent.py`: The core logic file. Contains `generate_signals`, which takes in historical data and boolean strategy toggles, outputting strict Buy and Sell triggers. (This is the module that will eventually be wrapped by the Robinhood MCP server).
-* `backtest/`: A dedicated directory containing the vectorized backtesting engine and execution scripts.
-  * `backtest/backtest_engine.py`: Fast vectorized return and trade execution calculations.
-  * `backtest/run_multi_asset_sweep.py`: Sweeps 384 strategies on SPY and VOO over a 2-year horizon using 60-minute candles to find the best configuration.
+Because it's long-only (bull ETF or cash) it maps natively onto Robinhood's long-only Agentic account.
 
-## Setup and Installation
+## Backtest (2010–2026, incl. real crashes — reproducible)
 
-1. Install dependencies:
 ```bash
-pip install pandas numpy yfinance
+python -m research.backtest_ibs
 ```
 
-## Running Backtests
+| Instrument | CAGR | max drawdown | Sharpe |
+|---|--:|--:|--:|
+| SOXL | +14% | −26% | 0.97 |
+| SPXL | +12% | −26% | 0.97 |
+| TQQQ | +12% | −21% | 0.92 |
+| **Equal-weight portfolio** | **+13%** | **−18%** | **1.08** |
 
-To run the parameter sweep on SPY and VOO to find the best 2-year technical indicator strategy:
-```bash
-cd backtest
-python run_multi_asset_sweep.py
+Beats buy-and-hold **out-of-sample** (walk-forward) at roughly a *quarter* of its drawdown.
+Through the March-2020 COVID crash the strategy was **+5 to +7%** while buy-and-hold fell
+**−65 to −76%**, because vol-targeting cut exposure to ~5% as volatility exploded.
+[`research/backtest_ibs.py`](research/backtest_ibs.py) reuses the *exact* strategy code the
+live bot runs ([`live/strategy.py`](live/strategy.py)), so the backtest and live logic can't drift.
+
+## Repository layout
+
+```
+live/                 the production bot (paper-mode by default)
+  config.py           parameters + guardrails
+  strategy.py         IBS + vol-target + cap  -> target weights (single source of truth)
+  data.py             daily OHLC (yfinance)
+  decide.py           daily brain: compute targets -> state/targets.json  (no Robinhood needed)
+  reconcile.py        deterministic target-vs-account -> exact orders
+  guardrails.py       kill-switch, exposure/$ caps, rebalance band
+  EXECUTION_PROMPT.md recipe for the live `claude -p` + Robinhood MCP step
+  run_daily.sh + com.trading.ibsbot.plist   scheduler (weekdays, ~15 min pre-close)
+  ROBINHOOD_SETUP.md  full go-live guide
+research/
+  backtest_ibs.py     reproducible backtest of the deployed strategy
+backtest/, agent.py, indicators.py   legacy research — BTC + SPY/VOO sweeps (superseded)
 ```
 
-Results are saved to `spy_voo_results_2yr.csv` inside the `backtest/` folder.
+## Quickstart
 
-## Next Steps
-- Integrate the winning parameters from `agent.py` into a FastAPI-based MCP server.
-- Connect the MCP server to Robinhood Agentic Trading to enable live autonomous execution.
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r live/requirements.txt
+.venv/bin/python -m research.backtest_ibs     # reproduce the numbers above
+.venv/bin/python -m live.decide --equity 500  # today's paper plan
+```
+
+Then follow **[live/ROBINHOOD_SETUP.md](live/ROBINHOOD_SETUP.md)** to open + fund an Agentic
+account, connect the Robinhood MCP, paper-watch it, and (only when satisfied) arm live trading.
+
+## Safety
+
+- **`PAPER_MODE = True`** by default — computes and logs a plan, places nothing.
+- **Kill switch:** `touch live/state/STOP` halts trading instantly.
+- Hard caps on per-sleeve and total exposure, an optional absolute `$` ceiling, and a rebalance
+  band to avoid churn on a small account. Order math is deterministic Python, not model discretion.
+
+## Honest caveats
+
+This is a real-money, leveraged strategy, and backtests are not guarantees. The edge is
+**tech-concentrated** (it failed validation on small-caps TNA and financials FAS) and is a
+mean-reversion premium, not a market-beater in raw return during bull markets — its advantage is
+**risk-adjusted** (far shallower drawdowns). It survived every crash in the record, but a novel
+gap-crash out of a calm period is the residual tail the exposure cap limits but cannot eliminate.
+Start small; paper-watch first.
