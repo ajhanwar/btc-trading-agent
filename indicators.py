@@ -1,3 +1,5 @@
+# LEGACY / SUPERSEDED: indicators for the original Bitcoin strategy (see agent.py).
+# The deployed strategy uses IBS (see live/strategy.py). Kept for historical reference only.
 import pandas as pd
 
 def calculate_indicators(df):

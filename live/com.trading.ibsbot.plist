@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS launchd job: run the bot ~15 min before US market close, weekdays.
+     Times are LOCAL. Below = 12:45 (set for US/Pacific = 15:45 ET). Adjust for your
+     timezone and for DST. Install:
+       cp live/com.trading.ibsbot.plist ~/Library/LaunchAgents/
+       launchctl load ~/Library/LaunchAgents/com.trading.ibsbot.plist
+     Stop:  launchctl unload ~/Library/LaunchAgents/com.trading.ibsbot.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>            <string>com.trading.ibsbot</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/ajhanwar/Documents/btc-trading-agent/live/run_daily.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>45</integer></dict>
+  </array>
+  <key>StandardOutPath</key>  <string>/Users/ajhanwar/Documents/btc-trading-agent/live/state/launchd.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/ajhanwar/Documents/btc-trading-agent/live/state/launchd.err.log</string>
+</dict>
+</plist>

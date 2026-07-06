@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+.venv/
+venv/
+*.pkl
+# Bot runtime state: logs, computed targets/orders, account snapshots, kill switch
+live/state/
+# Local tooling / machine-specific
+.claude/settings.local.json
+.serena/
