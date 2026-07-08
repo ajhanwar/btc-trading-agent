@@ -10,8 +10,8 @@ Strategy (validated over 2010-2026, see backtest research):
   Backtest profile (equal-weight 3-ETF portfolio): Sharpe ~1.10, CAGR ~11%/yr,
   max drawdown ~-15%. Long-only (bull ETF or cash) -> fits Robinhood Agentic.
 
-SAFETY: PAPER_MODE=True by default. Nothing places a live order until you set
-PAPER_MODE=False *and* have connected+authenticated the Robinhood MCP yourself.
+SAFETY: PAPER_MODE=False = ARMED for live. Even so, nothing can place an order until the
+Robinhood MCP is connected+authenticated; set PAPER_MODE=True to force a log-only dry run.
 """
 from pathlib import Path
 
@@ -34,7 +34,7 @@ TREND_BELOW_MULT = 1.00 # size multiplier when price is BELOW the trend EMA (edg
 HISTORY_DAYS = 1500     # calendar days to pull (~1030 bars: EMA320 warmup + vol window)
 
 # --- Guardrails ---
-PAPER_MODE = True                 # True = log intended orders only, never execute
+PAPER_MODE = False                # LIVE: places REAL orders once the Robinhood MCP is connected
 MAX_TOTAL_EXPOSURE = 0.55         # hard cap: total account fraction in ETFs (rest cash)
 MAX_DEPLOY_USD = None             # optional hard $ ceiling on total ETF exposure (None = off)
 REBALANCE_BAND_USD = 0.0          # skip an order if |target$ - current$| below this (anti-churn); set per account size
