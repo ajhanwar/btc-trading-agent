@@ -56,11 +56,12 @@ def run(equity: float = None) -> dict:
 
 def _print_summary(p: dict):
     print(f"\n=== Daily targets  ({p['timestamp']})  mode={'PAPER' if C.PAPER_MODE else 'LIVE'} ===")
-    print(f"{'ETF':<6}{'IBS':>6}{'pos':>5}{'annVol':>8}{'weight%':>9}", end="")
+    print(f"{'ETF':<6}{'IBS':>6}{'pos':>5}{'annVol':>8}{'trend':>7}{'weight%':>9}", end="")
     print(f"{'  $target' if 'target_usd' in p else ''}")
     for t in C.TICKERS:
         d = p["diagnostics"][t]; w = p["targets"][t]
-        line = f"{t:<6}{d['ibs']:>6}{d['position']:>5}{d['ann_vol']:>8.2f}{w*100:>8.1f}%"
+        tr = "below" if d.get("below_trend") else "above"
+        line = f"{t:<6}{d['ibs']:>6}{d['position']:>5}{d['ann_vol']:>8.2f}{tr:>7}{w*100:>8.1f}%"
         if "target_usd" in p:
             line += f"{'  $'+format(p['target_usd'][t], '.2f'):>10}"
         print(line)

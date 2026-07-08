@@ -18,6 +18,8 @@ For each ETF, independently:
 - Go **long** when IBS < 0.20 (oversold), exit to **cash** when IBS > 0.80. Never short.
 - Size the position to a **20% volatility target** (`target / realized_vol`), **capped at 0.5×**
   of the sleeve — so exposure auto-collapses when volatility spikes (i.e. in crashes).
+- **Trim exposure above the long-term trend** (320-day EMA) to 75%: the IBS edge is ~2× stronger
+  *below* trend, so de-emphasizing the weak-edge regime lifts Sharpe and shaves drawdowns.
 - Three equal-weight sleeves diversify the portfolio.
 
 Because it's long-only (bull ETF or cash) it maps natively onto Robinhood's long-only Agentic account.
@@ -30,10 +32,10 @@ python -m research.backtest_ibs
 
 | Instrument | CAGR | max drawdown | Sharpe |
 |---|--:|--:|--:|
-| SOXL | +14% | −26% | 0.97 |
-| SPXL | +12% | −26% | 0.97 |
-| TQQQ | +12% | −21% | 0.92 |
-| **Equal-weight portfolio** | **+13%** | **−18%** | **1.08** |
+| SOXL | +12% | −21% | 1.00 |
+| SPXL | +10% | −22% | 1.00 |
+| TQQQ | +10% | −17% | 0.94 |
+| **Equal-weight portfolio** | **+11%** | **−15%** | **1.10** |
 
 Beats buy-and-hold **out-of-sample** (walk-forward) at roughly a *quarter* of its drawdown.
 Through the March-2020 COVID crash the strategy was **+5 to +7%** while buy-and-hold fell

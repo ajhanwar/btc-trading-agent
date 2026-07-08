@@ -29,16 +29,31 @@ def realized_vol(df: pd.DataFrame, window=C.VOL_WINDOW) -> pd.Series:
     return df["Close"].pct_change().rolling(window).std() * np.sqrt(252)
 
 
+def ema(series: pd.Series, span: int) -> pd.Series:
+    """Standard recursive EMA (adjust=False)."""
+    return series.ewm(span=span, adjust=False).mean()
+
+
+def trend_multiplier(df: pd.DataFrame) -> pd.Series:
+    """Regime-aware size multiplier from the long-term trend EMA. The IBS mean-reversion
+    edge is ~2x stronger BELOW the trend (dip-buys in downtrends pay most), so exposure is
+    left full below the EMA and trimmed above it. Validated round 9: robust across EMA
+    lengths 150-450, and beats plain de-risking at equal exposure."""
+    below = df["Close"] < ema(df["Close"], C.EMA_TREND_LEN)
+    return pd.Series(np.where(below, C.TREND_BELOW_MULT, C.TREND_ABOVE_MULT), index=df.index)
+
+
 def weight_series(df: pd.DataFrame, backtest: bool = False) -> pd.Series:
     """
     Full time series of the sleeve weight in [0, EXPOSURE_CAP]:
         position (IBS state) * clip(VOL_TARGET / realized_vol, 0, EXPOSURE_CAP)
+        * trend_multiplier (regime-aware trim above the EMA), re-clipped to the cap.
     Live uses the last value (establish now). Backtest passes backtest=True to shift by one
     day (the weight decided at today's close earns the next day's return). This is the single
     source of truth shared by the live bot (sleeve_weight) and research/backtest_ibs.py.
     """
     frac = np.clip(C.VOL_TARGET / realized_vol(df), 0, C.EXPOSURE_CAP)
-    w = ibs_position(df) * frac
+    w = (ibs_position(df) * frac * trend_multiplier(df)).clip(0, C.EXPOSURE_CAP)
     return w.shift(1).fillna(0.0) if backtest else w
 
 
@@ -50,6 +65,7 @@ def sleeve_weight(df: pd.DataFrame) -> dict:
     pos = ibs_position(df)
     vol = realized_vol(df)
     frac = np.clip(C.VOL_TARGET / vol, 0, C.EXPOSURE_CAP)
+    below_trend = bool(df["Close"].iloc[-1] < ema(df["Close"], C.EMA_TREND_LEN).iloc[-1])
     weight = float(weight_series(df).iloc[-1])
     return {
         "weight": weight,
@@ -57,6 +73,8 @@ def sleeve_weight(df: pd.DataFrame) -> dict:
         "position": int(pos.iloc[-1]),
         "ann_vol": round(float(vol.iloc[-1]), 3),
         "raw_frac": round(float(frac.iloc[-1]), 3),
+        "below_trend": below_trend,
+        "trend_mult": C.TREND_BELOW_MULT if below_trend else C.TREND_ABOVE_MULT,
         "close": round(float(df["Close"].iloc[-1]), 2),
         "asof": str(df.index[-1].date()),
     }
