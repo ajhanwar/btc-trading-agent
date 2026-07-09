@@ -2,8 +2,8 @@
 
 An autonomous, **long-only** daily trading bot for a [Robinhood Agentic](https://robinhood.com/us/en/support/articles/agentic-trading-overview/)
 account. It trades a mean-reversion strategy — **Internal Bar Strength (IBS) + volatility
-targeting + an exposure cap** — across three tech-sector 3× ETFs (**SOXL, SPXL, TQQQ**),
-rebalanced once daily.
+targeting + an exposure cap** — across five sleeves: three tech-sector 3× ETFs (**SOXL,
+SPXL, TQQQ**) plus two near-zero-correlation diversifiers (**GLD, TLT**), rebalanced once daily.
 
 > This repo began as a Bitcoin stochastic-crossover experiment, then briefly detoured into an
 > SPY/VOO index sweep. Rigorous backtesting showed **neither had an out-of-sample edge**, and
@@ -18,9 +18,12 @@ For each ETF, independently:
 - Go **long** when IBS < 0.20 (oversold), exit to **cash** when IBS > 0.80. Never short.
 - Size the position to a **20% volatility target** (`target / realized_vol`), **capped at 0.5×**
   of the sleeve — so exposure auto-collapses when volatility spikes (i.e. in crashes).
-- **Trim exposure above the long-term trend** (320-day EMA) to 75%: the IBS edge is ~2× stronger
-  *below* trend, so de-emphasizing the weak-edge regime lifts Sharpe and shaves drawdowns.
-- Three equal-weight sleeves diversify the portfolio.
+- **Trim exposure above the long-term trend** (320-day EMA) to 75% on the leveraged tech sleeves:
+  the IBS edge is ~2× stronger *below* trend, so de-emphasizing the weak-edge regime lifts Sharpe
+  and shaves drawdowns.
+- **GLD and TLT run as additional plain-IBS sleeves** funded from otherwise-idle cash — their
+  returns are essentially uncorrelated with the tech sleeves (+0.06 / −0.07), a diversification
+  free lunch. The 0.55 total-exposure cap clips the rare collisions (~5% of days).
 
 Because it's long-only (bull ETF or cash) it maps natively onto Robinhood's long-only Agentic account.
 
@@ -35,7 +38,12 @@ python -m research.backtest_ibs
 | SOXL | +12% | −21% | 1.00 |
 | SPXL | +10% | −22% | 1.00 |
 | TQQQ | +10% | −17% | 0.94 |
-| **Equal-weight portfolio** | **+11%** | **−15%** | **1.10** |
+| GLD sleeve | +2% | −18% | 0.35 |
+| TLT sleeve | +2% | −10% | 0.46 |
+| **5-sleeve portfolio (clipped)** | **+12%** | **−17%** | **1.18** |
+
+(The GLD/TLT sleeves look weak alone but are near-uncorrelated with the tech sleeves, so
+adding them raises portfolio Sharpe from ~1.10 to ~1.18 while putting idle cash to work.)
 
 Beats buy-and-hold **out-of-sample** (walk-forward) at roughly a *quarter* of its drawdown.
 Through the March-2020 COVID crash the strategy was **+5 to +7%** while buy-and-hold fell

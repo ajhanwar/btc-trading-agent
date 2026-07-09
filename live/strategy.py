@@ -43,21 +43,25 @@ def trend_multiplier(df: pd.DataFrame) -> pd.Series:
     return pd.Series(np.where(below, C.TREND_BELOW_MULT, C.TREND_ABOVE_MULT), index=df.index)
 
 
-def weight_series(df: pd.DataFrame, backtest: bool = False) -> pd.Series:
+def weight_series(df: pd.DataFrame, backtest: bool = False, trend_trim: bool = True) -> pd.Series:
     """
     Full time series of the sleeve weight in [0, EXPOSURE_CAP]:
         position (IBS state) * clip(VOL_TARGET / realized_vol, 0, EXPOSURE_CAP)
-        * trend_multiplier (regime-aware trim above the EMA), re-clipped to the cap.
+        * trend_multiplier (regime-aware trim above the EMA; leveraged tech sleeves only —
+          pass trend_trim=False for the GLD/TLT diversifier sleeves), re-clipped to the cap.
     Live uses the last value (establish now). Backtest passes backtest=True to shift by one
     day (the weight decided at today's close earns the next day's return). This is the single
     source of truth shared by the live bot (sleeve_weight) and research/backtest_ibs.py.
     """
     frac = np.clip(C.VOL_TARGET / realized_vol(df), 0, C.EXPOSURE_CAP)
-    w = (ibs_position(df) * frac * trend_multiplier(df)).clip(0, C.EXPOSURE_CAP)
+    w = ibs_position(df) * frac
+    if trend_trim:
+        w = w * trend_multiplier(df)
+    w = w.clip(0, C.EXPOSURE_CAP)
     return w.shift(1).fillna(0.0) if backtest else w
 
 
-def sleeve_weight(df: pd.DataFrame) -> dict:
+def sleeve_weight(df: pd.DataFrame, trend_trim: bool = True) -> dict:
     """
     Today's target weight for one ETF sleeve, in [0, EXPOSURE_CAP].
     Returns the weight plus diagnostics for logging/transparency.
@@ -66,7 +70,11 @@ def sleeve_weight(df: pd.DataFrame) -> dict:
     vol = realized_vol(df)
     frac = np.clip(C.VOL_TARGET / vol, 0, C.EXPOSURE_CAP)
     below_trend = bool(df["Close"].iloc[-1] < ema(df["Close"], C.EMA_TREND_LEN).iloc[-1])
-    weight = float(weight_series(df).iloc[-1])
+    if trend_trim:
+        mult = C.TREND_BELOW_MULT if below_trend else C.TREND_ABOVE_MULT
+    else:
+        mult = 1.0
+    weight = float(weight_series(df, trend_trim=trend_trim).iloc[-1])
     return {
         "weight": weight,
         "ibs": round(float(ibs(df).iloc[-1]), 3),
@@ -74,7 +82,7 @@ def sleeve_weight(df: pd.DataFrame) -> dict:
         "ann_vol": round(float(vol.iloc[-1]), 3),
         "raw_frac": round(float(frac.iloc[-1]), 3),
         "below_trend": below_trend,
-        "trend_mult": C.TREND_BELOW_MULT if below_trend else C.TREND_ABOVE_MULT,
+        "trend_mult": mult,
         "close": round(float(df["Close"].iloc[-1]), 2),
         "asof": str(df.index[-1].date()),
     }
@@ -86,7 +94,8 @@ def portfolio_targets(history: dict) -> dict:
     Each ETF is one equal sleeve: account_fraction = sleeve_allocation * sleeve_weight.
     Total is clamped to MAX_TOTAL_EXPOSURE.
     """
-    sleeves = {t: sleeve_weight(df) for t, df in history.items()}
+    sleeves = {t: sleeve_weight(df, trend_trim=(t in C.TREND_TRIM_TICKERS))
+               for t, df in history.items()}
     targets = {t: C.SLEEVE_ALLOCATION[t] * s["weight"] for t, s in sleeves.items()}
     total = sum(targets.values())
     if total > C.MAX_TOTAL_EXPOSURE and total > 0:
