@@ -33,8 +33,8 @@ def yf_daily(sym: str) -> pd.DataFrame:
     return df[["Open", "High", "Low", "Close", "Volume"]].dropna()
 
 
-def sleeve_net(df: pd.DataFrame) -> pd.Series:
-    w = weight_series(df, backtest=True)          # same logic as the live bot, shifted 1 day
+def sleeve_net(df: pd.DataFrame, trend_trim: bool = True) -> pd.Series:
+    w = weight_series(df, backtest=True, trend_trim=trend_trim)   # same logic as live, shifted 1 day
     ret = df["Close"].pct_change().fillna(0.0)
     return w * ret - w.diff().abs().fillna(0.0) * SLIP
 
@@ -48,14 +48,23 @@ def stats(net: pd.Series) -> dict:
 
 def main():
     pct = lambda x: f"{x*100:+.0f}%"
-    nets = {}
     print(f"Backtesting {C.TICKERS}  (IBS entry<{C.IBS_ENTRY}, vol target {C.VOL_TARGET}, cap {C.EXPOSURE_CAP})\n")
     print(f"{'instrument':<14}{'CAGR':>7}{'maxDD':>7}{'Sharpe':>8}")
+    weights, rets = {}, {}
     for t in C.TICKERS:
-        n = sleeve_net(yf_daily(t)); nets[t] = n; s = stats(n)
+        df = yf_daily(t)
+        trim = t in C.TREND_TRIM_TICKERS
+        n = sleeve_net(df, trend_trim=trim); s = stats(n.dropna())
         print(f"{t:<14}{pct(s['cagr']):>7}{pct(s['maxdd']):>7}{s['sharpe']:>8.2f}")
+        weights[t] = weight_series(df, backtest=True, trend_trim=trim) * C.SLEEVE_ALLOCATION[t]
+        rets[t] = df["Close"].pct_change()
 
-    port = pd.DataFrame(nets).dropna().mean(axis=1)   # equal-weight 3-sleeve portfolio
+    # additive sleeve construction with the live MAX_TOTAL_EXPOSURE clip (as deployed)
+    W = pd.DataFrame(weights).dropna()
+    tot = W.sum(axis=1)
+    W = W.mul(np.where(tot > C.MAX_TOTAL_EXPOSURE, C.MAX_TOTAL_EXPOSURE / tot, 1.0), axis=0)
+    R = pd.DataFrame(rets).reindex(W.index).fillna(0.0)
+    port = (W * R).sum(axis=1) - W.diff().abs().sum(axis=1).fillna(0.0) * SLIP
     ps = stats(port)
     print(f"{'PORTFOLIO':<14}{pct(ps['cagr']):>7}{pct(ps['maxdd']):>7}{ps['sharpe']:>8.2f}")
 

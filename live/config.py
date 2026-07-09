@@ -5,19 +5,28 @@ Strategy (validated over 2010-2026, see backtest research):
   For each ETF: go long (fraction of that sleeve's capital) when Internal Bar
   Strength (IBS = (Close-Low)/(High-Low)) is oversold, size the position to a
   target volatility, cap the leverage exposure, trim exposure above the 320-day
-  trend EMA, else hold cash. Three equal sleeves (SOXL / SPXL / TQQQ) diversify.
+  trend EMA (leveraged tech sleeves only), else hold cash. Five sleeves: three
+  leveraged tech (SOXL / SPXL / TQQQ) plus two near-zero-correlation diversifiers
+  (GLD gold, TLT long bonds) that put otherwise-idle cash to work (R10 validated:
+  sleeve return corr with the tech portfolio is +0.06 / -0.07).
 
-  Backtest profile (equal-weight 3-ETF portfolio): Sharpe ~1.10, CAGR ~11%/yr,
-  max drawdown ~-15%. Long-only (bull ETF or cash) -> fits Robinhood Agentic.
+  Backtest profile (additive 5-sleeve portfolio, 0.55 total-exposure clip):
+  Sharpe ~1.22, CAGR ~12%/yr, max drawdown ~-16%. Long-only -> fits Robinhood Agentic.
 
 SAFETY: PAPER_MODE=False = ARMED for live. Even so, nothing can place an order until the
 Robinhood MCP is connected+authenticated; set PAPER_MODE=True to force a log-only dry run.
 """
 from pathlib import Path
 
-# --- Universe: the three tech-sector 3x bull ETFs (validated); each an equal sleeve ---
-TICKERS = ["SOXL", "SPXL", "TQQQ"]
-SLEEVE_ALLOCATION = {t: 1.0 / len(TICKERS) for t in TICKERS}  # 1/3 of account each
+# --- Universe: three tech-sector 3x bull ETFs + two uncorrelated diversifiers ---
+TICKERS = ["SOXL", "SPXL", "TQQQ", "GLD", "TLT"]
+# Additive sleeve construction (R10): tech sleeves keep 1/3 of account each; GLD/TLT are
+# ADDITIONAL 1/3 sleeves funded from otherwise-idle cash (the portfolio is mostly cash).
+# Nominal allocations sum to 5/3 by design; MAX_TOTAL_EXPOSURE clips the rare collisions
+# (~5% of days historically), which is included in the validated backtest numbers.
+SLEEVE_ALLOCATION = {t: 1.0 / 3.0 for t in TICKERS}
+# 320-EMA trend trim applies only where it was validated (the leveraged tech sleeves).
+TREND_TRIM_TICKERS = ["SOXL", "SPXL", "TQQQ"]
 
 # --- Strategy parameters (do NOT change without re-validating) ---
 IBS_ENTRY = 0.20        # buy when IBS < this (oversold)
